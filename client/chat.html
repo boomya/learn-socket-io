@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+        
+        <title>Demo Chat</title>
+
+        <link href="bootstrap.css" rel="stylesheet">
+
+	<style>
+		body { 
+			padding:20px;
+		}
+		.console { 
+			height: 400px; 
+			overflow: auto; 
+		}
+		.username-msg {color:orange;}
+		.connect-msg {color:green;}
+		.disconnect-msg {color:red;}
+		.send-msg {color:#888}
+	</style>
+
+
+	<script src="js/socket.io/socket.io.js"></script>
+    <script src="js/moment.min.js"></script>
+    <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+	
+	<script>
+
+        var userName1 = 'user1_' + Math.floor((Math.random()*1000)+1);
+        var userName2 = 'user2_' + Math.floor((Math.random()*1000)+1);
+
+		var chatSocket =  io.connect('http://localhost:9092/chat');
+
+        function connectHandler(parentId) {
+            registHandler();
+			return function() {
+                output('<span class="connect-msg">Client has connected to the server!</span>', parentId);
+            }
+        }
+
+        function messageHandler(parentId) {
+            return function(data) {
+                output('<span class="username-msg">' + data.userName + ':</span> ' + data.message, parentId);
+	        }
+        }
+
+        function disconnectHandler(parentId) {
+            return function() {
+                output('<span class="disconnect-msg">The client has disconnected!</span>', parentId);
+            }
+        }
+
+        function registHandler(){
+            chatSocket.emit('registEvent', userName1);    
+        }
+
+		function sendMessageHandler(parentId, userName, chatSocket) {
+            var message = $(parentId + ' #msg').val();
+            $(parentId + ' .msg').val('');
+            
+            var jsonObject = {'@class': 'org.boom.socketio.server.message.MessageVO',
+                              userName: userName, 
+                              message: message};
+            // chatSocket.json.send(jsonObject);
+            chatSocket.emit('chatevent', jsonObject);
+		}
+
+        function sendOne2OneMessageHandler(parentId, userName, targetUserName, chatSocket) {
+            var message = $(parentId + ' #msg').val();
+            $(parentId + ' .msg').val('');
+            
+            var jsonObject = {'@class': 'org.boom.socketio.server.message.One2OneActionVO',
+                              action: 1,
+                              userName: userName,
+                              targetUserName: targetUserName, 
+                              message: message};
+            // chatSocket.json.send(jsonObject);
+            chatSocket.emit('one2oneEvent', jsonObject);
+        }
+
+        function joinRoomHandler(parentId, userName, chatSocket) {
+            var roomName = $(parentId + ' #roomName').val();
+            $(parentId + ' #roomName').val('');
+            
+            var jsonObject = {'@class': 'org.boom.socketio.server.message.RoomActionVO',
+                              action: 1,
+                              userName: userName, 
+                              roomName: roomName};
+            chatSocket.emit('roomEvent', jsonObject);
+        }
+
+
+		chatSocket.on('connect', connectHandler('#chat1'));
+		
+		chatSocket.on('message', messageHandler('#chat1'));
+        chatSocket.on('chatevent', messageHandler('#chat1'));
+		
+		chatSocket.on('disconnect', disconnectHandler('#chat1'));
+
+        function sendDisconnect1() {
+            chatSocket.disconnect();
+        }
+
+		function sendMessage1() {
+            var targetUserName = $('#chat1 #userName').val();
+            if(targetUserName === ''){
+                sendMessageHandler('#chat1', userName1, chatSocket);    
+            }else{
+                sendOne2OneMessageHandler('#chat1', userName1, targetUserName, chatSocket);
+            }
+		}
+
+        function joinRoom() {
+            joinRoomHandler('#chat1', userName1, chatSocket);
+        }
+		
+		function output(message, parentId) {
+            var currentTime = "<span class='time'>" +  moment().format('HH:mm:ss.SSS') + "</span>";
+            var element = $("<div>" + currentTime + " " + message + "</div>");
+			$(parentId + ' .console').prepend(element);
+		}
+		
+	</script>
+</head>
+
+<body>
+	
+	<h1>Namespaces demo chat</h1>
+	
+	<br/>
+
+        <div id="chat1" style="width: 99%; float: left;">
+            <h4>chat1</h4>
+            <div class="console well">
+            </div>
+
+            <form class="well form-inline" onsubmit="return false;">
+               <input id="msg" class="msg input-xlarge" type="text" placeholder="Type something..."/>
+               <input id="userName" class="msg" type="text" placeholder="user name..."/>
+               <button type="button" onClick="sendMessage1()" class="btn">Send</button>
+               <button type="button" onClick="sendDisconnect1()" class="btn">Disconnect</button>
+               <div>
+                <input id="roomName" class="msg input-xlarge" type="text" placeholder="Room Name..."/>
+                <button type="button" onClick="joinRoom()" class="btn">Join</button>     
+               </div>
+            </form>
+        </div>
+
+	
+</body>
+
+</html>
